@@ -157,97 +157,96 @@ def generate_stream(client, **kwargs):
 
 def normal_operation(request):
     """Handle chat completion requests with concurrency lock and fake streaming."""
-    with completion_lock:
-        print(f"Request: {request.json}")
+    # with completion_lock:
+    
+    if not request.json:
+        return jsonify(error=True), 400
 
-        if not request.json:
-            return jsonify(error=True), 400
+    messages = request.json["messages"]
 
-        messages = request.json["messages"]
-
-        if messages and messages[0]["content"] == "Just say TEST":
-            return {
-                "id": "chatcmpl-test",
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": MODEL,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": "TEST"
-                        },
-                        "logprobs": None,
-                        "finish_reason": "stop"
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": 10,
-                    "completion_tokens": 1,
-                    "total_tokens": 11
+    if messages and messages[0]["content"] == "Just say TEST":
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": MODEL,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "TEST"
+                    },
+                    "logprobs": None,
+                    "finish_reason": "stop"
                 }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 1,
+                "total_tokens": 11
             }
-
-        if not API_KEY:
-            return jsonify(error="No API key found in environment variables"), 401
-
-        if PREFILL_ENABLED:
-            if messages[-1]["role"] == "user":
-                messages.append({"content": ASSISTANT_PREFILL, "role": "assistant"})
-            else:
-                messages[-1]["content"] += "\n" + ASSISTANT_PREFILL
-
-        is_streaming = request.json.get('stream', False)
-        params = {
-            'messages': messages,
-            'model': request.json.get('model', MODEL),
-            'temperature': request.json.get('temperature', 0.9),
-            'max_tokens': request.json.get('max_tokens', 2048),
-            'stream': is_streaming,  # we fake stream manually
-            'top_p': request.json.get('top_p', 0.9),
         }
 
-        try:
-            client = get_client()
+    if not API_KEY:
+        return jsonify(error="No API key found in environment variables"), 401
+
+    if PREFILL_ENABLED:
+        if messages[-1]["role"] == "user":
+            messages.append({"content": ASSISTANT_PREFILL, "role": "assistant"})
+        else:
+            messages[-1]["content"] += "\n" + ASSISTANT_PREFILL
+
+    is_streaming = request.json.get('stream', False)
+    params = {
+        'messages': messages,
+        'model': request.json.get('model', MODEL),
+        'temperature': request.json.get('temperature', 0.9),
+        'max_tokens': request.json.get('max_tokens', 2048),
+        'stream': is_streaming,  # we fake stream manually
+        'top_p': request.json.get('top_p', 0.9),
+    }
+
+    try:
+        client = get_client()
+        
+        if is_streaming:
+            return Response(
+                stream_with_context(generate_stream(client, **params)), 
+                content_type='text/event-stream'
+            )
+        else:
+            response = client.chat.completions.create(**params)
             
-            if is_streaming:
-                return Response(
-                    stream_with_context(generate_stream(client, **params)), 
-                    content_type='text/event-stream'
+            # Convert response to dict for JSON serialization
+            result = response.model_dump()
+            
+            # Apply auto-trimming if enabled
+            if AUTO_TRIM and result.get("choices") and result["choices"][0].get("message"):
+                result["choices"][0]["message"]["content"] = auto_trim(
+                    result["choices"][0]["message"]["content"]
                 )
-            else:
-                response = client.chat.completions.create(**params)
-                
-                # Convert response to dict for JSON serialization
-                result = response.model_dump()
-                
-                # Apply auto-trimming if enabled
-                if AUTO_TRIM and result.get("choices") and result["choices"][0].get("message"):
-                    result["choices"][0]["message"]["content"] = auto_trim(
-                        result["choices"][0]["message"]["content"]
-                    )
-                
-                return jsonify(result)
+            
+            return jsonify(result)
 
-        except Exception as error:
-            print(f"Error occurred: {error}")
-            if "429" in str(error) or "quota" in str(error).lower():
-                return jsonify(status=False, error="out of quota"), 429
-            elif "401" in str(error) or "unauthorized" in str(error).lower():
-                return jsonify(status=False, error="Unauthorized - check your API key"), 401
-            else:
-                return jsonify(error=str(error)), 500
+    except Exception as error:
+        print(f"Error occurred: {error}")
+        if "429" in str(error) or "quota" in str(error).lower():
+            return jsonify(status=False, error="out of quota"), 429
+        elif "401" in str(error) or "unauthorized" in str(error).lower():
+            return jsonify(status=False, error="Unauthorized - check your API key"), 401
+        else:
+            return jsonify(error=str(error)), 500
 
 
-        except Exception as error:
-            print(f"Error occurred: {error}")
-            if "429" in str(error) or "quota" in str(error).lower():
-                return jsonify(status=False, error="out of quota"), 429
-            elif "401" in str(error) or "unauthorized" in str(error).lower():
-                return jsonify(status=False, error="Unauthorized - check your API key"), 401
-            else:
-                return jsonify(error=str(error)), 500
+    except Exception as error:
+        print(f"Error occurred: {error}")
+        if "429" in str(error) or "quota" in str(error).lower():
+            return jsonify(status=False, error="out of quota"), 429
+        elif "401" in str(error) or "unauthorized" in str(error).lower():
+            return jsonify(status=False, error="Unauthorized - check your API key"), 401
+        else:
+            return jsonify(error=str(error)), 500
 
 @app.route("/", methods=["POST"])
 def normal_generate():
