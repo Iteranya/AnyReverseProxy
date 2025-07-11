@@ -255,7 +255,30 @@ def normal_generate():
 
 @app.route("/chat/completions", methods=["POST"])
 def generate():
+    # Grab the user's API key from headers (common practice)
+    user_token = request.headers.get('Authorization')
+    
+
+    # If they didn’t send it, sorry buddy.
+    if not user_token:
+        return jsonify(error="No API key provided"), 401
+
+    # Load whitelist from file
+    try:
+        with open('whitelist_token.txt') as f:
+            
+            allowed_tokens = {line.strip() for line in f if line.strip()}
+            print(allowed_tokens)
+    except FileNotFoundError:
+        return jsonify(error="Server misconfiguration: whitelist file missing"), 500
+
+    # Check if user’s token is in whitelist
+    if user_token not in allowed_tokens:
+        return jsonify(error="Unauthorized - invalid API key"), 401
+
+    # If all good, proceed!
     return normal_operation(request)
+
 
 if __name__ == '__main__':
     print(f"Starting server on port {PORT}")
