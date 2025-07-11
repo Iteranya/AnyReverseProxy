@@ -24,8 +24,8 @@ Plug in your API key, set the endpoint, choose your port — fire it up — and 
 
 ```bash
 # 1️ Clone it
-git clone https://github.com/iteranya/openai-reverse-proxy.git
-cd openai-reverse-prox
+git https://github.com/Iteranya/AnyReverseProxy.git
+cd AnyReverseProxy
 
 # 2️ Make your environment
 python -m venv/venv
