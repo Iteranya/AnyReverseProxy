@@ -14,11 +14,9 @@ Plug in your API key, set the endpoint, choose your port — fire it up — and 
 * **Sequential requests** — like a polite line at the post office.
 * Perfect for cheapskates (hello, yes, it’s me) who just want their LLM fix without paying for fancy concurrency.
 
-## 🧪 Coming Soon™
+## 🧪 Features
 
-* 🔑 **Multi-Key Support** — so you don’t get rate-limited into oblivion.
 * 🔗 **Multi-Provider Support** — run OpenRouter, local models, or your neighbor’s AI rig.
-* ⚡ **Parallel Processing** — so your requests can run like caffeinated squirrels instead of a single sloth.
 
 ## 🚀 Quickstart
 
